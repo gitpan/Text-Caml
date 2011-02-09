@@ -1,0 +1,23 @@
+lib/Text/Caml.pm
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+README.pod
+t/class.t
+t/comments.t
+t/full.t
+t/inverted-sections.t
+t/lambdas.t
+t/lib/TestView.pm
+t/methods.t
+t/partials.t
+t/pod.t
+t/pod_coverage.t
+t/sections.t
+t/templates/partial
+t/templates/partial-with-directives
+t/templates/partial-with-recursion
+t/templates/test_view.html
+t/variables-coderef.t
+t/variables.t
+META.yml                                 Module meta-data (added by MakeMaker)

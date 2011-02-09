@@ -1,0 +1,28 @@
+--- #YAML:1.0
+name:               Text-Caml
+version:            0.009001
+abstract:           Mustache-like template engine
+author:
+    - Viacheslav Tykhanovskyi <vti@cpan.org>
+license:            artistic_2
+distribution_type:  module
+configure_requires:  {}
+build_requires:  {}
+requires:
+    Carp:        0
+    File::Spec:  0
+    perl:        5.008007
+    Test::More:  0
+resources:
+    bugtracker:  http://github.com/vti/text-caml/issues
+    license:     http://dev.perl.org/licenses/
+    repository:  http://github.com/vti/text-caml
+no_index:
+    directory:
+        - t
+        - inc
+        - t
+generated_by:       ExtUtils::MakeMaker version 6.56
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4
