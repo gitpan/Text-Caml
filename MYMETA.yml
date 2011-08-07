@@ -2,9 +2,10 @@
 abstract: 'Mustache-like template engine'
 author:
   - 'Viacheslav Tykhanovskyi <vti@cpan.org>'
-build_requires: {}
+build_requires:
+  ExtUtils::MakeMaker: 0
 configure_requires: {}
-dynamic_config: 1
+dynamic_config: 0
 generated_by: 'ExtUtils::MakeMaker version 6.58, CPAN::Meta::Converter version 2.110930001'
 license: artistic_2
 meta-spec:
@@ -20,7 +21,6 @@ requires:
   Carp: 0
   File::Spec: 0
   Test::More: 0
-  perl: 5.008007
 resources:
   bugtracker: http://github.com/vti/text-caml/issues
   license: http://dev.perl.org/licenses/

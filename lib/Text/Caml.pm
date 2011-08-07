@@ -6,7 +6,7 @@ use warnings;
 require Carp;
 use File::Spec;
 
-our $VERSION = '0.009001';
+our $VERSION = '0.009002';
 
 our $LEADING_SPACE  = qr/(?:\n [ ]*)?/x;
 our $TRAILING_SPACE = qr/(?:[ ]* \n)?/x;
@@ -23,6 +23,9 @@ sub new {
 
     my $self = {@_};
     bless $self, $class;
+
+    $self->set_templates_path('.')
+      unless $self->templates_path;
 
     return $self;
 }
@@ -190,8 +193,13 @@ sub _get_value {
     my $context = shift;
     my $name    = shift;
 
+    if ($name eq '.') {
+        return '' if $self->_is_empty($context, $name);
+        return $context->{$name};
+    }
+
     # Method
-    if ($name =~ s/^\.//) {
+    elsif ($name =~ s/^\.//) {
         my $code   = "do {use strict;use warnings;\$self->$name;};";
         my $retval = eval $code;
         Carp::croak("Error near method call: $code: $@") if $@;
@@ -246,16 +254,16 @@ sub _render_section {
     elsif (ref $value eq 'ARRAY') {
         my $idx = 0;
         foreach my $el (@$value) {
-            my $context = ref $el ? $el : {'.' => $el};
-            $context->{'_idx'} = $idx;
+            my $subcontext = ref $el eq 'HASH' ? $el : {'.' => $el};
+            $subcontext->{'_idx'} = $idx;
 
-            $context->{'_even'} = $idx % 2 == 0;
-            $context->{'_odd'}  = $idx % 2 != 0;
+            $subcontext->{'_even'} = $idx % 2 == 0;
+            $subcontext->{'_odd'}  = $idx % 2 != 0;
 
-            $context->{'_first'} = $idx == 0;
-            $context->{'_last'}  = $idx == $#$value;
+            $subcontext->{'_first'} = $idx == 0;
+            $subcontext->{'_last'}  = $idx == $#$value;
 
-            $output .= $self->render($template, $context);
+            $output .= $self->render($template, {%$context, %$subcontext});
 
             $idx++;
         }
@@ -313,7 +321,7 @@ sub _slurp_template {
 
     my $path = File::Spec->catfile($self->templates_path, $template);
 
-    Carp::croak("Can't find '$template'") unless defined $path && -f $path;
+    Carp::croak("Can't find '$path'") unless defined $path && -f $path;
 
     my $content = do {
         local $/;
@@ -450,7 +458,7 @@ created to point to the current element.
 
 =item *
 
-Hash, C<hash> is a non-empty hash reference. Context is swithed to to the
+Hash, C<hash> is a non-empty hash reference. Context is swithed to the
 elements.
 
     # hash => {one => 1, two => 2, three => 3}
@@ -552,6 +560,8 @@ Render template from file.
 Viacheslav Tykhanovskyi, C<vti@cpan.org>
 
 =head1 CREDITS
+
+Sergey Zasenko (und3f)
 
 =head1 COPYRIGHT AND LICENSE
 
