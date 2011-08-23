@@ -25,4 +25,4 @@ resources:
   bugtracker: http://github.com/vti/text-caml/issues
   license: http://dev.perl.org/licenses/
   repository: http://github.com/vti/text-caml
-version: 0.009002
+version: 0.009003
