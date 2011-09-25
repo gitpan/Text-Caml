@@ -4,9 +4,10 @@ use strict;
 use warnings;
 
 require Carp;
+require Scalar::Util;
 use File::Spec ();
 
-our $VERSION = '0.009003';
+our $VERSION = '0.009004';
 
 our $LEADING_SPACE  = qr/(?:\n [ ]*)?/x;
 our $TRAILING_SPACE = qr/(?:[ ]* \n)?/x;
@@ -188,6 +189,24 @@ sub _render_tag {
     return $value;
 }
 
+sub _find_value {
+    my $self    = shift;
+    my $context = shift;
+    my $name    = shift;
+
+    my @parts = split /\./ => $name;
+
+    my $value = $context;
+
+    foreach my $part (@parts) {
+        return undef if $self->_is_empty($value, $part);
+        $value =
+          Scalar::Util::blessed($value) ? $value->$part : $value->{$part};
+    }
+
+    return \$value;
+}
+
 sub _get_value {
     my $self    = shift;
     my $context = shift;
@@ -206,19 +225,9 @@ sub _get_value {
         return $retval;
     }
 
-    my @parts = split /\./ => $name;
+    my $value = $self->_find_value($context, $name);
 
-    $name = shift @parts;
-    return '' if $self->_is_empty($context, $name);
-
-    my $value = $context->{$name};
-
-    foreach my $part (@parts) {
-        return '' if $self->_is_empty($value, $part);
-        $value = $value->{$part};
-    }
-
-    return $value;
+    return $value ? $$value : '';
 }
 
 sub _render_tag_escaped {
@@ -269,6 +278,7 @@ sub _render_section {
         }
     }
     elsif (ref $value eq 'CODE') {
+        $template = $self->render($template, $context);
         $output
           .= $self->render($value->($self, $template, $context), $context);
     }
@@ -285,10 +295,11 @@ sub _render_inverted_section {
     my $template = shift;
     my $context  = shift;
 
+    my $value = $self->_find_value($context, $name);
     return $self->render($template, $context)
-      unless exists $context->{$name};
+      unless defined $value;
 
-    my $value  = $context->{$name};
+    $value = $$value;
     my $output = '';
 
     if (ref $value eq 'HASH') {
@@ -342,11 +353,20 @@ sub _slurp_template {
 
 sub _is_empty {
     my $self = shift;
-    my ($vars, $var) = @_;
+    my ($vars, $name) = @_;
 
-    return 1 unless exists $vars->{$var};
-    return 1 unless defined $vars->{$var};
-    return 1 if $vars->{$var} eq '';
+    my $var;
+
+    if (Scalar::Util::blessed($vars)) {
+        $var = $vars->$name;
+    }
+    else {
+        return 1 unless exists $vars->{$name};
+        $var = $vars->{$name};
+    }
+
+    return 1 unless defined $var;
+    return 1 if $var eq '';
 
     return 0;
 }

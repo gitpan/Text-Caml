@@ -6,7 +6,7 @@ build_requires:
   ExtUtils::MakeMaker: 0
 configure_requires: {}
 dynamic_config: 0
-generated_by: 'ExtUtils::MakeMaker version 6.58, CPAN::Meta::Converter version 2.110930001'
+generated_by: 'ExtUtils::MakeMaker version 6.58, CPAN::Meta::Converter version 2.112150'
 license: artistic_2
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -20,9 +20,10 @@ no_index:
 requires:
   Carp: 0
   File::Spec: 0
+  Scalar::Util: 0
   Test::More: 0
 resources:
   bugtracker: http://github.com/vti/text-caml/issues
   license: http://dev.perl.org/licenses/
   repository: http://github.com/vti/text-caml
-version: 0.009003
+version: 0.009004

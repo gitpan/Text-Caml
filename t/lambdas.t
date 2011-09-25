@@ -1,13 +1,14 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 
 use Text::Caml;
 
 my $renderer = Text::Caml->new;
+my $output;
 
-my $output = $renderer->render(
+$output = $renderer->render(
     '{{lamda}}',
     {   lamda => sub { }
     }
@@ -57,3 +58,12 @@ $output = $renderer->render(<<'EOF', {name => 'Willy', wrapped => $wrapped});
 {{/wrapped}}
 EOF
 is $output => "<b>Willy is awesome.</b>";
+
+$output = $renderer->render(<<'EOF', {wrapper => sub {$_[1] =~ s/r/z/; $_[1]}, list => [qw/foo bar/]});
+{{#list}}
+  {{#wrapper}}
+    {{.}}
+  {{/wrapper}}
+{{/list}}
+EOF
+like $output => qr/foo\s+baz/;
