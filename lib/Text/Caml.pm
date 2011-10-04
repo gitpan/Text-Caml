@@ -7,7 +7,7 @@ require Carp;
 require Scalar::Util;
 use File::Spec ();
 
-our $VERSION = '0.009004';
+our $VERSION = '0.009005';
 
 our $LEADING_SPACE  = qr/(?:\n [ ]*)?/x;
 our $TRAILING_SPACE = qr/(?:[ ]* \n)?/x;
@@ -199,6 +199,22 @@ sub _find_value {
     my $value = $context;
 
     foreach my $part (@parts) {
+        if (   exists $value->{'_with'}
+            && Scalar::Util::blessed($value->{'_with'})
+            && $value->{'_with'}->can($part))
+        {
+            $value = $value->{'_with'}->$part;
+            next;
+        }
+
+        if (   exists $value->{'.'}
+            && Scalar::Util::blessed($value->{'.'})
+            && $value->{'.'}->can($part))
+        {
+            $value = $value->{'.'}->$part;
+            next;
+        }
+
         return undef if $self->_is_empty($value, $part);
         $value =
           Scalar::Util::blessed($value) ? $value->$part : $value->{$part};
@@ -281,6 +297,9 @@ sub _render_section {
         $template = $self->render($template, $context);
         $output
           .= $self->render($value->($self, $template, $context), $context);
+    }
+    elsif (ref $value) {
+        $output .= $self->render($template, {%$context, _with => $value});
     }
     elsif ($value) {
         $output .= $self->render($template, $context);
