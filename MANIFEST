@@ -10,7 +10,6 @@ t/file.t
 t/full.t
 t/inverted-sections.t
 t/lambdas.t
-t/lib/TestView.pm
 t/methods.t
 t/partials.t
 t/pod.t

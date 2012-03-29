@@ -7,7 +7,7 @@ require Carp;
 require Scalar::Util;
 use File::Spec ();
 
-our $VERSION = '0.009005';
+our $VERSION = '0.10';
 
 our $LEADING_SPACE  = qr/(?:\n [ ]*)?/x;
 our $TRAILING_SPACE = qr/(?:[ ]* \n)?/x;
@@ -40,7 +40,6 @@ sub render {
     my $context  = ref $_[0] eq 'HASH' ? $_[0] : {@_};
 
     $self->_parse($template, $context);
-
 }
 
 sub render_file {
@@ -68,7 +67,7 @@ sub _parse {
 
             # Tripple
             if ($template =~ m/\G { (.*?) } $END_TAG/gcxms) {
-                $chunk .= $self->_render_tag($1, $context);
+                $chunk .= $self->_parse_tag($1, $context);
             }
 
             # Comment
@@ -83,16 +82,11 @@ sub _parse {
                 my $name           = $1;
                 my $end_of_section = $name;
 
-                # Method call
-                if ($name =~ m/^\./) {
-                    $end_of_section =~ s/\(.*//;
-                }
-
                 if ($template
                     =~ m/\G (.*?) ($LEADING_SPACE)? $START_TAG $END_OF_SECTION $end_of_section $END_TAG ($TRAILING_SPACE)?/gcxms
                   )
                 {
-                    $chunk .= $self->_render_section($name, $1, $context);
+                    $chunk .= $self->_parse_section($name, $1, $context);
                 }
                 else {
                     Carp::croak("Section's '$name' end not found");
@@ -111,7 +105,7 @@ sub _parse {
                   )
                 {
                     $chunk
-                      .= $self->_render_inverted_section($name, $1, $context);
+                      .= $self->_parse_inverted_section($name, $1, $context);
                 }
                 else {
                     Carp::croak("Section's '$name' end not found");
@@ -125,12 +119,12 @@ sub _parse {
 
             # Partial
             elsif ($template =~ m/\G $START_OF_PARTIAL (.*?) $END_TAG/gcxms) {
-                $chunk .= $self->_render_partial($1, $context);
+                $chunk .= $self->_parse_partial($1, $context);
             }
 
             # Tag
             elsif ($template =~ m/\G (.*?) $END_TAG/gcxms) {
-                $chunk .= $self->_render_tag_escaped($1, $context);
+                $chunk .= $self->_parse_tag_escaped($1, $context);
             }
             else {
                 Carp::croak("Can't find where tag is closed");
@@ -161,10 +155,9 @@ sub _parse {
     return $output;
 }
 
-sub _render_tag {
-    my $self    = shift;
-    my $name    = shift;
-    my $context = shift;
+sub _parse_tag {
+    my $self = shift;
+    my ($name, $context) = @_;
 
     my $value;
     my %args;
@@ -183,16 +176,15 @@ sub _render_tag {
     if (ref $value eq 'CODE') {
         my $content = $value->($self, '', $context);
         $content = '' unless defined $content;
-        return $self->render($content, $context);
+        return $self->_parse($content, $context);
     }
 
     return $value;
 }
 
 sub _find_value {
-    my $self    = shift;
-    my $context = shift;
-    my $name    = shift;
+    my $self = shift;
+    my ($context, $name) = @_;
 
     my @parts = split /\./ => $name;
 
@@ -224,21 +216,12 @@ sub _find_value {
 }
 
 sub _get_value {
-    my $self    = shift;
-    my $context = shift;
-    my $name    = shift;
+    my $self = shift;
+    my ($context, $name) = @_;
 
     if ($name eq '.') {
         return '' if $self->_is_empty($context, $name);
         return $context->{$name};
-    }
-
-    # Method
-    elsif ($name =~ s/^\.//) {
-        my $code   = "do {use strict;use warnings;\$self->$name;};";
-        my $retval = eval $code;
-        Carp::croak("Error near method call: $code: $@") if $@;
-        return $retval;
     }
 
     my $value = $self->_find_value($context, $name);
@@ -246,35 +229,32 @@ sub _get_value {
     return $value ? $$value : '';
 }
 
-sub _render_tag_escaped {
-    my $self    = shift;
-    my $tag     = shift;
-    my $context = shift;
+sub _parse_tag_escaped {
+    my $self = shift;
+    my ($tag, $context) = @_;
 
     my $do_not_escape;
     if ($tag =~ s/\A \&//xms) {
         $do_not_escape = 1;
     }
 
-    my $output = $self->_render_tag($tag, $context);
+    my $output = $self->_parse_tag($tag, $context);
 
     $output = $self->_escape($output) unless $do_not_escape;
 
     return $output;
 }
 
-sub _render_section {
-    my $self     = shift;
-    my $name     = shift;
-    my $template = shift;
-    my $context  = shift;
+sub _parse_section {
+    my $self = shift;
+    my ($name, $template, $context) = @_;
 
     my $value = $self->_get_value($context, $name);
 
     my $output = '';
 
     if (ref $value eq 'HASH') {
-        $output .= $self->render($template, $value);
+        $output .= $self->_parse($template, {%$context, %$value});
     }
     elsif (ref $value eq 'ARRAY') {
         my $idx = 0;
@@ -288,34 +268,32 @@ sub _render_section {
             $subcontext->{'_first'} = $idx == 0;
             $subcontext->{'_last'}  = $idx == $#$value;
 
-            $output .= $self->render($template, {%$context, %$subcontext});
+            $output .= $self->_parse($template, {%$context, %$subcontext});
 
             $idx++;
         }
     }
     elsif (ref $value eq 'CODE') {
-        $template = $self->render($template, $context);
+        $template = $self->_parse($template, $context);
         $output
-          .= $self->render($value->($self, $template, $context), $context);
+          .= $self->_parse($value->($self, $template, $context), $context);
     }
     elsif (ref $value) {
-        $output .= $self->render($template, {%$context, _with => $value});
+        $output .= $self->_parse($template, {%$context, _with => $value});
     }
     elsif ($value) {
-        $output .= $self->render($template, $context);
+        $output .= $self->_parse($template, $context);
     }
 
     return $output;
 }
 
-sub _render_inverted_section {
-    my $self     = shift;
-    my $name     = shift;
-    my $template = shift;
-    my $context  = shift;
+sub _parse_inverted_section {
+    my $self = shift;
+    my ($name, $template, $context) = @_;
 
     my $value = $self->_find_value($context, $name);
-    return $self->render($template, $context)
+    return $self->_parse($template, $context)
       unless defined $value;
 
     $value = $$value;
@@ -326,28 +304,27 @@ sub _render_inverted_section {
     elsif (ref $value eq 'ARRAY') {
         return '' if @$value;
 
-        $output .= $self->render($template, $context);
+        $output .= $self->_parse($template, $context);
     }
     elsif (!$value) {
-        $output .= $self->render($template, $context);
+        $output .= $self->_parse($template, $context);
     }
 
     return $output;
 }
 
-sub _render_partial {
-    my $self     = shift;
-    my $template = shift;
-    my $context  = shift;
+sub _parse_partial {
+    my $self = shift;
+    my ($template, $context) = @_;
 
     my $content = $self->_slurp_template($template);
 
-    return $self->render($content, $context);
+    return $self->_parse($content, $context);
 }
 
 sub _slurp_template {
-    my $self     = shift;
-    my $template = shift;
+    my $self = shift;
+    my ($template) = @_;
 
     my $path =
       defined $self->templates_path
@@ -407,7 +384,7 @@ __END__
 
 =head1 NAME
 
-Text::Caml - Mustache tamplate engine
+Text::Caml - Mustache template engine
 
 =head1 SYNOPSIS
 
@@ -608,7 +585,7 @@ Sergey Zasenko (und3f)
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011, Viacheslav Tykhanovskyi
+Copyright (C) 2011-2012, Viacheslav Tykhanovskyi
 
 This program is free software, you can redistribute it and/or modify it under
 the terms of the Artistic License version 2.0.
